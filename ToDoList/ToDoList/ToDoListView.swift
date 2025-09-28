@@ -26,10 +26,6 @@ struct ToDoListView: View {
                     TextField("新しいタスクを入力", text: $viewModel.newTask)
                         .textFieldStyle(.roundedBorder)
                     
-                    DatePicker("", selection: $selectedDate, displayedComponents: .date)
-                        .labelsHidden()
-                        .frame(maxWidth: 150)
-                    
                     Button("追加") {
                         viewModel.addTask(dueDate: selectedDate)
                         selectedDate = Date()
@@ -37,15 +33,51 @@ struct ToDoListView: View {
                 }
                 .padding()
                 
+                    Text("優先度")
+                        .font(.caption)
+                        .padding(.leading, 147)
+                
+                HStack {
+                    DatePicker("", selection: $selectedDate, displayedComponents: .date)
+                        .labelsHidden()
+                    
+                    Picker("優先度", selection: $viewModel.selectedPriority) {
+                        ForEach(Priority.allCases, id: \.self) { priority in
+                            Text(priority.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                .padding()
+                
+                Picker("並び替え", selection: $viewModel.sortOption) {
+                    ForEach(SortOption.allCases, id: \.self) { option in
+                        Text(option.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding()
                 List {
-                    ForEach(viewModel.filteredTasks) { task in
+                    ForEach($viewModel.filteredTasks) { $task in
                         HStack {
                             Image(systemName: task.isDone ? "checkmark.circle.fill" : "circle")
                             VStack(alignment: .leading) {
-                                Text("\(task.title)")
-                                    .strikethrough(task.isDone)
-                                    .foregroundColor(task.isDone ? .gray : .primary)
+                                HStack {
+                                    Text("\(task.title)")
+                                        .strikethrough(task.isDone)
+                                        .foregroundColor(task.isDone ? .gray : .primary)
+                                    
+                                    Spacer()
+                                    // .rawValueはenumの文字列を取り出す
+                                    Text("\(task.priority.rawValue)")
+                                }
                                 
+                                TextEditor(text: $task.memo)
+                                    .frame(height: 80)
+                                    .border(Color.black, width: 1)
+                                    .onChange(of: task.memo) {
+                                        viewModel.saveTasks()
+                                    }
                                 if let due = task.dueDate {
                                     // 今日の日付を取得できる
                                     let today = Calendar.current.startOfDay(for: Date())
@@ -57,6 +89,8 @@ struct ToDoListView: View {
                                 }
                             }
                         }
+                        .listRowBackground(viewModel.backgroundColor(for: task.priority))
+                        
                         .onTapGesture {
                             viewModel.toggleTask(task)
                         }
@@ -65,10 +99,13 @@ struct ToDoListView: View {
                         viewModel.deleteOffset = indexSet
                         viewModel.showDeleteAlert = true
                     }
-                    .onMove { indices, newOffset in
-                        viewModel.moveTasks(from: indices, to: newOffset)
+                    // リストの並び替え
+                    .onMove { o, n in
+                        viewModel.moveTasks(from: o, to: n)
                     }
+
                 }
+                
             }
             .navigationTitle("ToDoList")
             .navigationBarTitleDisplayMode(.inline)
