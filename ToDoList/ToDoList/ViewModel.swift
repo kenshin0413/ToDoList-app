@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 class ToDoListViewModel: ObservableObject {
     @Published var isEditing = false
@@ -15,10 +16,16 @@ class ToDoListViewModel: ObservableObject {
     @Published var showDeleteAlert = false
     @Published var searchText = ""
     @Published var filteredTasks: [Task] = []
+    @Published var selectedPriority: Priority = .middle
+    @Published var sortOption: SortOption = .priority
     var sortedTasks: [Task] {
-        let undone = tasks.filter { !$0.isDone }
-        let done = tasks.filter { $0.isDone }
-        return undone + done
+        switch sortOption {
+        case .priority:
+            return tasks.sorted(by: { (a: Task, b: Task) in
+                a.priority.priorityOrder < b.priority.priorityOrder })
+        case .dueDate:
+            return tasks.sorted { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
+        }
     }
     
     func searchTasks() {
@@ -28,6 +35,12 @@ class ToDoListViewModel: ObservableObject {
             filteredTasks = sortedTasks.filter { task in
                 // 大文字小文字を区別せずに検索文字列を含むかどうか判定できる
                 task.title.localizedCaseInsensitiveContains(searchText)
+            }
+            switch sortOption {
+            case .priority:
+                 filteredTasks.sorted(by: { $0.priority.priorityOrder < $1.priority.priorityOrder })
+            case .dueDate:
+                 filteredTasks.sorted(by: { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) })
             }
         }
     }
@@ -54,11 +67,11 @@ class ToDoListViewModel: ObservableObject {
     
     func addTask(dueDate: Date? = nil) {
         if !newTask.isEmpty {
-            let task = Task(title: newTask, dueDate: dueDate)
+            let task = Task(title: newTask, dueDate: dueDate, priority: selectedPriority)
             tasks.append(task)
             newTask = ""
             saveTasks()
-            
+            sortedTasks
             if let dueDate = dueDate {
                 NotificationManager.shared.scheduleNotification(id: task.id.uuidString, title: "タスクの期限です。", body: task.title, date: dueDate)
             }
@@ -87,13 +100,22 @@ class ToDoListViewModel: ObservableObject {
         if let index = tasks.firstIndex(where: { $0.id == task.id }) {
             tasks[index].isDone.toggle()
             saveTasks()
+            searchTasks()
         }
     }
     
-    func moveTasks(from source: IndexSet, to destination: Int) {
-        tasks.move(fromOffsets: source, toOffset: destination)
+    func moveTasks(from o: IndexSet, to n: Int) {
+        tasks.move(fromOffsets: o, toOffset: n)
         saveTasks()
         searchTasks()
+    }
+    
+    func backgroundColor(for priority: Priority) -> Color {
+        switch priority {
+        case .high: return Color.pink.opacity(0.9)
+        case .middle: return Color.green.opacity(0.9)
+        case .low: return Color.yellow.opacity(0.7)
+        }
     }
 }
 
