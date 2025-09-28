@@ -7,8 +7,9 @@
 
 import Foundation
 
-struct Task: Identifiable {
+struct Task: Identifiable, Codable {
     var id = UUID()
     var title: String
-    var idOn: Bool = false
+    var isDone: Bool = false
+    var dueDate: Date? = nil
 }
